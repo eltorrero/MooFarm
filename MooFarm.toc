@@ -1,0 +1,7 @@
+## Interface: 11302
+## Title: MooFarm
+## Notes: Count mobs killed on farm sessions
+## Author: eltorrero
+## Version: 20190913
+
+MooFarm.lua
