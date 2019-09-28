@@ -5,11 +5,31 @@ local t = {}
 local startmoney = 0
 local endmoney = 0
 local startvendorpricebag = 0
+local lookupEvent = {}
+local lookupParam = {}
 
 -- convert total amount of money in unit copper to other units
 local function ConvertToGold(totalCopper) return floor(abs(totalCopper/10000)) end
 local function ConvertToSilver(totalCopper) return floor(abs(mod(totalCopper/100,100))) end
 local function ConvertToCopper(totalCopper) return floor(abs(mod(totalCopper,100))) end
+
+
+
+-- event functions
+-- lookup[] =
+
+-- Slash CMD functions
+lookupParam["test"] = function()
+	-- print("\124cffff9933Superverkaufomat 680\124r")
+	-- print("Drachenodemchili")
+	-- print("Scharfe Wolfrippchen")
+	-- print("Eigenartiger Eintopf")
+	-- print("Mageres Wolfsteak")
+	-- print("")
+	-- print("\124cffff9933Kaufotron 1000\124r")
+	-- print("Schwerer Kodoeintopf")
+	-- print("Mageres Wildbret")
+end
 
 local function GetPriceForItemsInBags()
 -- iterate through bags, get the vendor price for each item and multiply by count of items
@@ -33,33 +53,6 @@ local function GetPriceForItemsInBags()
 	return result
 end
 
-local function MyAuctionQuery()
-	-- query the item mouse is over in auction house
-	-- Returns the name of the frame under the mouse, if it's named
-	local frame = GetMouseFocus()
-	if frame then
-		local name = frame:GetName() -- or tostring(frame)
-		local bagInd, itemInd = string.match(name, 'ContainerFrame(%d)Item(%d+)$')
-		-- Frame name and GetContainerItemID zählen anders daher umrechnen
-		bagInd = tonumber(bagInd)-1
-		local numberOfSlots = GetContainerNumSlots(bagInd);
-		itemInd = (numberOfSlots+1)-tonumber(itemInd)
-		local itemID = GetContainerItemID(bagInd,itemInd)
-		local itemName = select(1, GetItemInfo(itemID))
-		print("QueryAuctionItems -> "..itemName)
-		QueryAuctionItems(itemName)
-	end
-end
-
-local function MyAuctionSort(reversed)
-	-- clear any existing criteria
-	SortAuctionClearSort("list")
-	-- then, apply some criteria of our own
-	SortAuctionSetSort("list", "buyout")
-	SortAuctionSetSort("list", "quantity", reversed)
-	-- apply the criteria to the server query
-	SortAuctionApplySort("list")
-end
 
 SLASH_MOOFARM1 = "/moofarm";
 function SlashCmdList.MOOFARM(msg, editbox)
@@ -92,37 +85,45 @@ function SlashCmdList.MOOFARM(msg, editbox)
 		end
 
 	end
-	
-	if msg=="query" then
-		MyAuctionSort(false)
-		MyAuctionQuery()
-	end
-	
-	if msg=="queryreversed" then
-		MyAuctionSort(true)
-		MyAuctionQuery()
-	end
-	
-	if msg=="priceperitem" then
-		local index = GetSelectedAuctionItem("list")
-		local aItemInfo = {GetAuctionItemInfo("list", index)}
-		local aItemName = aItemInfo[1]
-		local aItemCount = aItemInfo[3]
-		local aItemBuyout = aItemInfo[10]
-		print("1 x "..aItemName..": "..ConvertToGold(aItemBuyout/aItemCount).." Gold, "..ConvertToSilver(aItemBuyout/aItemCount).." Silber, "..ConvertToCopper(aItemBuyout/aItemCount).." Kupfer")
-	end
-	
-	if msg=="test" then
-		print(GetPriceForItemsInBags())
-	end
+
+	lookupParam[msg]()
 end
+
+
+
+-----------------------------------------------------------------------
+
+local MooFarm_Frame = CreateFrame("Frame", "MooFarm_Frame", UIParent, "BasicFrameTemplateWithInset")
+MooFarm_Frame:SetSize(300, 360) -- width, height
+MooFarm_Frame:SetPoint("CENTER", UIParent, "RIGHT", -400, 0)
+
+MooFarm_Frame.title = MooFarm_Frame:CreateFontString(nil, "OVERLAY")
+MooFarm_Frame.title:SetFontObject("GameFontHighlight")
+MooFarm_Frame.title:SetPoint("Left", MooFarm_Frame.TitleBg, "LEFT", 5, 0)
+MooFarm_Frame.title:SetText("MooFarm")
+
+MooFarm_Frame.showBtn = CreateFrame("Button", nil, MooFarm_Frame, "GameMenuButtonTemplate")
+MooFarm_Frame.showBtn:SetPoint("CENTER", MooFarm_Frame, "TOP", 0, -70)
+MooFarm_Frame.showBtn:SetSize(140, 40)
+MooFarm_Frame.showBtn:SetText("Apply")
+MooFarm_Frame.showBtn:SetNormalFontObject("GameFontNormalLarge")
+MooFarm_Frame.showBtn:SetHighlightFontObject("GameFontHighlightLarge")
+
+MooFarm_Frame.checkBtn = CreateFrame("CheckButton", nil, MooFarm_Frame, "UICheckButtonTemplate")
+MooFarm_Frame.checkBtn:SetPoint("TOPLEFT", MooFarm_Frame.showBtn, "BOTTOMLEFT", 0, -20)
+MooFarm_Frame.checkBtn.text:SetText("AutoRepair")
+
+-----------------------------------------------------------------------
 
 f:RegisterEvent("COMBAT_LOG_EVENT")
 f:RegisterEvent("PLAYER_MONEY")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
+f:RegisterEvent("LOOT_READY")
+
 
 f:SetScript("OnEvent", function(self, event, ...)
 	if event == "COMBAT_LOG_EVENT" then
+		
 		local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = CombatLogGetCurrentEventInfo()
 		if subevent=="PARTY_KILL" and sourceName==GetUnitName("PLAYER") then
 			if t[destName] == nil then
@@ -145,7 +146,26 @@ f:SetScript("OnEvent", function(self, event, ...)
 		startvendorpricebag = GetPriceForItemsInBags()
 	end
 	
-	if event == "PLAYER_MONEY" then endmoney = GetMoney(); print(select(1,...)); end
+	if event == "PLAYER_MONEY" then endmoney = GetMoney() end
+
+	if event=="LOOT_READY" then
+	end
+	
+	
+	
+	
+	--local itemSellPrice = select(11, GetItemInfo(lootInfo[i].item))
+	--print(itemSellPrice)
+	-- mit loot ready event den von mir geplünderten loot table bauen
+	-- dann anhand des tables einen get sell price and stack count ermittel und so den gesamten vendor preis
+	-- print loot cmd
+	-- print kills cmd
+	-- print fish caught
+	-- print money looted
+	-- print vendor price for loot
+	-- print time
+	-- mooauction erstellen und dort alles zu auction query und sort rein
+
 
 end)
 
